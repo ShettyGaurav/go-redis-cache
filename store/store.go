@@ -8,8 +8,21 @@ import (
 	"time"
 )
 
+type ValueType int
+
+const (
+	StringType ValueType = iota
+	ListType
+	SetType
+	HashType
+)
+
 type RedisValue struct {
-	Data       string
+	Type       ValueType
+	StringVal  string
+	ListVal    []string
+	SetVal     map[string]struct{}
+	HashVal    map[string]string
 	Expiration int64
 }
 type redisStore struct {
@@ -54,7 +67,8 @@ func (rs *redisStore) Set(key string, value string, expiration time.Duration) {
 		exp = time.Now().Add(expiration).Unix()
 	}
 	rs.data[key] = &RedisValue{
-		Data:       value,
+		Type:       StringType,
+		StringVal:  value,
 		Expiration: exp,
 	}
 	rs.appendToFile(key, value, exp, "SET")
@@ -69,33 +83,43 @@ func (rs *redisStore) Get(key string) (string, bool) {
 	}
 	if item.Expiration > 0 && time.Now().Unix() > item.Expiration {
 		rs.mu.Lock()
-		delete(rs.data, key)
+		if storedItem, exists := rs.data[key]; exists && storedItem == item {
+			delete(rs.data, key)
+		}
 		rs.mu.Unlock()
 		return "", false
 	}
-	return item.Data, true
+	return item.StringVal, true
 }
 
-func (rs *redisStore) Delete(key string) {
+func (rs *redisStore) Delete(key string) int {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
-	delete(rs.data, key)
+	if _, found := rs.data[key]; found {
+		delete(rs.data, key)
+		return 1
+	}
+	return 0
 }
 
 func (rs *redisStore) Exists(key string) bool {
 	rs.mu.RLock()
-	_, found := rs.data[key]
-	if found {
-		item, found := rs.data[key]
-		if found {
-			if item.Expiration > 0 && time.Now().Unix() > item.Expiration {
-				delete(rs.data, key)
-				found = false
-			}
-		}
-	}
+	item, found := rs.data[key]
 	rs.mu.RUnlock()
-	return found
+	if !found {
+		return false
+	}
+
+	if item.Expiration > 0 && time.Now().Unix() > item.Expiration {
+		rs.mu.Lock()
+		defer rs.mu.Unlock()
+		if storedItem, exists := rs.data[key]; exists && storedItem == item {
+			delete(rs.data, key)
+			return false
+		}
+		return false
+	}
+	return true
 }
 
 func (rs *redisStore) loadFromFile() {
@@ -121,10 +145,14 @@ func (rs *redisStore) loadFromFile() {
 			continue
 		}
 
-		// skip expired keys
-		if expiration == 0 || time.Now().Unix() <= expiration {
+		if expiration > 0 && time.Now().Unix() > expiration {
+			continue
+		}
+
+		if cmd == "SET" {
 			rs.data[key] = &RedisValue{
-				Data:       value,
+				Type:       StringType,
+				StringVal:  value,
 				Expiration: expiration,
 			}
 		}
@@ -142,4 +170,25 @@ func (rs *redisStore) appendToFile(key, value string, expiration int64, cmd stri
 	if err != nil {
 		fmt.Println("Error appending to file:", err)
 	}
+}
+
+func (rs *redisStore) GetType(key string) (ValueType, bool) {
+	rs.mu.RLock()
+	item, found := rs.data[key]
+	rs.mu.RUnlock()
+
+	if !found {
+		return StringType, false
+	}
+
+	if item.Expiration > 0 && time.Now().Unix() > item.Expiration {
+		rs.mu.Lock()
+		defer rs.mu.Unlock()
+		if storedItem, exists := rs.data[key]; exists && storedItem == item {
+			delete(rs.data, key)
+		}
+		return StringType, false
+	}
+
+	return item.Type, true
 }
