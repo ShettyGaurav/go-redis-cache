@@ -192,3 +192,84 @@ func (rs *redisStore) GetType(key string) (ValueType, bool) {
 
 	return item.Type, true
 }
+
+func (rs *redisStore) LPush(key string, value string) {
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+
+	item, exists := rs.data[key]
+	if !exists {
+		item = &RedisValue{
+			Type:    ListType,
+			ListVal: []string{},
+		}
+		rs.data[key] = item
+	} else if item.Type != ListType {
+		return
+	}
+	item.ListVal = append([]string{value}, item.ListVal...)
+	rs.appendToFile(key, value, item.Expiration, "LPUSH")
+}
+
+func (rs *redisStore) LPop(key string) (string, bool) {
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	item, exists := rs.data[key]
+	if !exists {
+		return "", false
+	}
+	if item.Expiration > 0 && time.Now().Unix() > item.Expiration {
+		delete(rs.data, key)
+		return "", false
+	}
+	if item.Type != ListType {
+		return "", false
+	}
+	if len(item.ListVal) == 0 {
+		return "", false
+	}
+	value := item.ListVal[0]
+	item.ListVal = item.ListVal[1:]
+	if len(item.ListVal) == 0 {
+		delete(rs.data, key)
+	}
+	rs.appendToFile(key, value, item.Expiration, "LPOP")
+	return value, true
+}
+
+func (rs *redisStore) LRange(key string, start, stop int) ([]string, bool) {
+	rs.mu.RLock()
+	defer rs.mu.RUnlock()
+	item, exists := rs.data[key]
+	if !exists {
+		return nil, false
+	}
+	if item.Expiration > 0 && time.Now().Unix() > item.Expiration {
+		return nil, false
+	}
+	if item.Type != ListType {
+		return nil, false
+	}
+
+	list := item.ListVal
+	length := len(list)
+
+	if start < 0 {
+		start = length + start
+	}
+	if stop < 0 {
+		stop = length + stop
+	}
+
+	if start < 0 {
+		start = 0
+	}
+	if stop >= length {
+		stop = length - 1
+	}
+	if start > stop {
+		return []string{}, true
+	}
+
+	return list[start : stop+1], true
+}

@@ -44,6 +44,7 @@ func main() {
 	}
 
 	store.Set("foo", "bar", 20*time.Hour)
+	store.Set("Goo", "too", 20*time.Hour)
 
 	val, ok := store.Get("foo")
 	if ok {
@@ -53,10 +54,8 @@ func main() {
 	}
 
 	store.Set("goo", "too", 10*time.Second)
-
 	exists := store.Exists("foo")
 	fmt.Println("Value exists:", exists)
-
 	deleted := store.Delete("goo")
 	fmt.Println("Deleted goo:", deleted)
 
@@ -66,4 +65,26 @@ func main() {
 	} else {
 		fmt.Println("foo not found or expired")
 	}
+
+	//-----------------LIST Operations-----------------
+	store.LPush("mylist", "value1")
+	store.LPush("mylist", "value2")
+	store.LPush("mylist", "value3")
+	store.LPush("mylist", "value4")
+	store.LPush("mylist", "value5")
+
+	store.LRange("mylist", 0, 2)
+	if values, ok := store.LRange("mylist", 0, 4); ok {
+		fmt.Println("Values:", values)
+	} else {
+		fmt.Println("Values not found")
+	}
+
+	store.LPop("mylist")
+	if value, ok := store.LPop("mylist"); ok {
+		fmt.Println("Popped value:", value)
+	} else {
+		fmt.Println("Popped value not found")
+	}
+
 }
