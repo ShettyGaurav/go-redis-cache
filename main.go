@@ -30,6 +30,8 @@ package main
 import (
 	"fmt"
 	"myredis/store"
+	test "myredis/tests"
+	"testing"
 	"time"
 )
 
@@ -65,4 +67,9 @@ func main() {
 	fmt.Println("Restart program to see if foo/mylist reload from file.")
 	time.Sleep(2 * time.Second)
 	rs.Set("foo", "bar", 20*time.Hour)
+
+	test.TestEncodeBulkString(&testing.T{})
+	test.TestEncodeError(&testing.T{})
+	test.TestEncodeInteger(&testing.T{})
+	test.TestEncodeSimpleString(&testing.T{})
 }
