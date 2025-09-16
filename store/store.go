@@ -149,11 +149,33 @@ func (rs *redisStore) loadFromFile() {
 			continue
 		}
 
-		if cmd == "SET" {
+		switch cmd {
+		case "SET":
 			rs.data[key] = &RedisValue{
 				Type:       StringType,
 				StringVal:  value,
 				Expiration: expiration,
+			}
+		case "LPUSH":
+			item, exists := rs.data[key]
+			if !exists {
+				item = &RedisValue{
+					Type:    ListType,
+					ListVal: []string{},
+				}
+				rs.data[key] = item
+			}
+			if item.Type == ListType {
+				item.ListVal = append([]string{value}, item.ListVal...)
+				item.Expiration = expiration
+			}
+		case "LPOP":
+			if item, exists := rs.data[key]; exists && item.Type == ListType && len(item.ListVal) > 0 {
+				item.ListVal = item.ListVal[1:]
+				if len(item.ListVal) == 0 {
+					delete(rs.data, key)
+				}
+				item.Expiration = expiration
 			}
 		}
 	}
