@@ -46,7 +46,30 @@ go mod tidy
 cd go-redis-cache
 go run main.go
 ```
+
+## 🛠 Instrutions
+Download Redis-CLI from 
+https://redis.io/downloads/
+Figure it out for linux and mac
+
+ 
+## 🛠 Open New Terminal
+RUN
+```bash
+redis-cli -p 6379
+```
+Execute these commands one-by-one
+```
+GET testkey
+GET nonexistent
+DEL testkey
+GET testkey
+LPUSH testlist "first"
+LPUSH testlist "second"
+LPOP testlist
+LPOP testlist
+LPOP testlist
+```
 ## 🛠 Under Progress
 -Building CLI 
 
--Client-Server for cache Integration
