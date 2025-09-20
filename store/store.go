@@ -25,13 +25,13 @@ type RedisValue struct {
 	HashVal    map[string]string
 	Expiration int64
 }
-type redisStore struct {
+type RedisStore struct {
 	data     map[string]*RedisValue
 	mu       sync.RWMutex
 	filename string
 }
 
-func (rs *redisStore) startGC() {
+func (rs *RedisStore) startGC() {
 	go func() {
 		ticker := time.NewTicker(time.Second * 5)
 		defer ticker.Stop()
@@ -49,8 +49,8 @@ func (rs *redisStore) startGC() {
 	}()
 }
 
-func NewRedisStore(filename string) *redisStore {
-	rs := &redisStore{
+func NewRedisStore(filename string) *RedisStore {
+	rs := &RedisStore{
 		data:     make(map[string]*RedisValue),
 		filename: filename,
 	}
@@ -59,7 +59,7 @@ func NewRedisStore(filename string) *redisStore {
 	return rs
 }
 
-func (rs *redisStore) Set(key string, value string, expiration time.Duration) {
+func (rs *RedisStore) Set(key string, value string, expiration time.Duration) {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	var exp int64
@@ -74,7 +74,7 @@ func (rs *redisStore) Set(key string, value string, expiration time.Duration) {
 	rs.appendToFile(key, value, exp, "SET")
 }
 
-func (rs *redisStore) Get(key string) (string, bool) {
+func (rs *RedisStore) Get(key string) (string, bool) {
 	rs.mu.RLock()
 	item, found := rs.data[key]
 	rs.mu.RUnlock()
@@ -92,7 +92,7 @@ func (rs *redisStore) Get(key string) (string, bool) {
 	return item.StringVal, true
 }
 
-func (rs *redisStore) Delete(key string) int {
+func (rs *RedisStore) Delete(key string) int {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	if _, found := rs.data[key]; found {
@@ -102,7 +102,7 @@ func (rs *redisStore) Delete(key string) int {
 	return 0
 }
 
-func (rs *redisStore) Exists(key string) bool {
+func (rs *RedisStore) Exists(key string) bool {
 	rs.mu.RLock()
 	item, found := rs.data[key]
 	rs.mu.RUnlock()
@@ -122,7 +122,7 @@ func (rs *redisStore) Exists(key string) bool {
 	return true
 }
 
-func (rs *redisStore) loadFromFile() {
+func (rs *RedisStore) loadFromFile() {
 	f, err := os.Open(rs.filename)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -181,7 +181,7 @@ func (rs *redisStore) loadFromFile() {
 	}
 }
 
-func (rs *redisStore) appendToFile(key, value string, expiration int64, cmd string) {
+func (rs *RedisStore) appendToFile(key, value string, expiration int64, cmd string) {
 	f, err := os.OpenFile(rs.filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Println("Error appending to file:", err)
@@ -194,7 +194,7 @@ func (rs *redisStore) appendToFile(key, value string, expiration int64, cmd stri
 	}
 }
 
-func (rs *redisStore) GetType(key string) (ValueType, bool) {
+func (rs *RedisStore) GetType(key string) (ValueType, bool) {
 	rs.mu.RLock()
 	item, found := rs.data[key]
 	rs.mu.RUnlock()
@@ -215,7 +215,7 @@ func (rs *redisStore) GetType(key string) (ValueType, bool) {
 	return item.Type, true
 }
 
-func (rs *redisStore) LPush(key string, value string) {
+func (rs *RedisStore) LPush(key string, value string) int {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
@@ -227,13 +227,14 @@ func (rs *redisStore) LPush(key string, value string) {
 		}
 		rs.data[key] = item
 	} else if item.Type != ListType {
-		return
+		return 0
 	}
 	item.ListVal = append([]string{value}, item.ListVal...)
 	rs.appendToFile(key, value, item.Expiration, "LPUSH")
+	return len(item.ListVal)
 }
 
-func (rs *redisStore) LPop(key string) (string, bool) {
+func (rs *RedisStore) LPop(key string) (string, bool) {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	item, exists := rs.data[key]
@@ -259,7 +260,7 @@ func (rs *redisStore) LPop(key string) (string, bool) {
 	return value, true
 }
 
-func (rs *redisStore) LRange(key string, start, stop int) ([]string, bool) {
+func (rs *RedisStore) LRange(key string, start, stop int) ([]string, bool) {
 	rs.mu.RLock()
 	defer rs.mu.RUnlock()
 	item, exists := rs.data[key]

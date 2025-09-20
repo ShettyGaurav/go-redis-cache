@@ -28,48 +28,51 @@
 package main
 
 import (
-	"fmt"
+	"myredis/server"
 	"myredis/store"
-	test "myredis/tests"
-	"testing"
-	"time"
 )
 
 func main() {
 	rs := store.NewRedisStore("data.txt")
 
-	// -------- Test loadFromFile --------
-	if val, ok := rs.Get("foo"); ok {
-		fmt.Println("Reloaded foo from file:", val)
-	} else {
-		fmt.Println("foo not found in file")
+	srv := server.NewServer(rs)
+	err := srv.Start(":6379")
+	if err != nil {
+		panic(err)
 	}
+	// // -------- Test loadFromFile --------
+	// if val, ok := rs.Get("foo"); ok {
+	// 	fmt.Println("Reloaded foo from file:", val)
+	// } else {
+	// 	fmt.Println("foo not found in file")
+	// }
 
-	// -------- Test LPUSH --------
-	rs.LPush("mylist", "value1")
-	rs.LPush("mylist", "value2")
-	rs.LPush("mylist", "value3")
+	// // -------- Test LPUSH --------
+	// rs.LPush("mylist", "value1")
+	// rs.LPush("mylist", "value2")
+	// rs.LPush("mylist", "value3")
 
-	if values, ok := rs.LRange("mylist", 0, 10); ok {
-		fmt.Println("List after LPush:", values)
-	}
+	// if values, ok := rs.LRange("mylist", 0, 10); ok {
+	// 	fmt.Println("List after LPush:", values)
+	// }
 
-	// -------- Test LPOP --------
-	if val, ok := rs.LPop("mylist"); ok {
-		fmt.Println("Popped from mylist:", val)
-	}
+	// // -------- Test LPOP --------
+	// if val, ok := rs.LPop("mylist"); ok {
+	// 	fmt.Println("Popped from mylist:", val)
+	// }
 
-	if values, ok := rs.LRange("mylist", 0, 10); ok {
-		fmt.Println("List after LPop:", values)
-	}
+	// if values, ok := rs.LRange("mylist", 0, 10); ok {
+	// 	fmt.Println("List after LPop:", values)
+	// }
 
-	// -------- Test Persistence --------
-	fmt.Println("Restart program to see if foo/mylist reload from file.")
-	time.Sleep(2 * time.Second)
-	rs.Set("foo", "bar", 20*time.Hour)
+	// // -------- Test Persistence --------
+	// fmt.Println("Restart program to see if foo/mylist reload from file.")
+	// time.Sleep(2 * time.Second)
+	// rs.Set("foo", "bar", 20*time.Hour)
 
-	test.TestEncodeBulkString(&testing.T{})
-	test.TestEncodeError(&testing.T{})
-	test.TestEncodeInteger(&testing.T{})
-	test.TestEncodeSimpleString(&testing.T{})
+	// test.TestEncodeBulkString(&testing.T{})
+	// test.TestEncodeError(&testing.T{})
+	// test.TestEncodeInteger(&testing.T{})
+	// test.TestEncodeSimpleString(&testing.T{})
+
 }
